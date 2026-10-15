@@ -3,3 +3,7 @@
 
 gitinette:
 	python3 subject/attachments/gitinette
+
+setup:
+	git config core.hooksPath scripts/hooks
+	chmod +x scripts/hooks/commit-msg
