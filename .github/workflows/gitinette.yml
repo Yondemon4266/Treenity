@@ -1,0 +1,30 @@
+name: Git guidelines
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ "**" ]
+
+permissions:
+  contents: read
+
+jobs:
+  gitinette:
+    name: gitinette
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # gitinette walks the whole history: with the default depth of 1,
+          # merge commits are grafted without parents and get reported as
+          # Conventional Commits violations.
+          fetch-depth: 0
+
+      # On push, HEAD is main. On a pull request, actions/checkout builds the
+      # merge of the PR into its base, which is what main will look like once
+      # the PR lands.
+      - name: Run gitinette
+        run: python3 .github/workflows/gitinette --base-branch HEAD
