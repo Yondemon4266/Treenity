@@ -1,0 +1,41 @@
+# --- Binaries produced by the Makefile ---
+# Leading "/" = only at the repository root, so cmd/server/ or
+# cmd/client/ source directories are NOT ignored.
+/server
+/client
+/bin/
+/build/
+
+# --- Go build / test artifacts ---
+*.exe
+*.test
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Go workspace file (local to each developer)
+go.work
+go.work.sum
+
+# Vendored dependencies (re-downloadable with `go mod vendor`)
+/vendor/
+
+# --- Subject helper binaries (~8 MB each, provided by 42) ---
+subject/attachments/*/aquarium
+subject/attachments/*/fish
+
+# --- Environment / secrets ---
+.env
+.env.*
+
+# --- Editors / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
