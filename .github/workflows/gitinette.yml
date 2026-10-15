@@ -27,4 +27,4 @@ jobs:
       # merge of the PR into its base, which is what main will look like once
       # the PR lands.
       - name: Run gitinette
-        run: python3 .github/workflows/gitinette --base-branch HEAD
+        run: python3 subject/attachments/gitinette --base-branch HEAD
