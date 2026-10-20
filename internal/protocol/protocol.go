@@ -15,6 +15,7 @@ import (
 const (
 	MaxPayload = 1024 // key + value max, en octets
 	MaxLine    = 4096
+	MaxOffset  = 1<<31 - 1 // int32 max limit for offset (incrementing 32-bit integer)
 )
 
 // ---- 2. Codes de sortie (sujet VIII.4) ----
