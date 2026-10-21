@@ -68,7 +68,7 @@ type ClientInfo struct {
 // Delivery : server -> consumer. Un message = key + value + offset (sujet VI.4).
 type Delivery struct {
 	Type   string `json:"type"` // DeliveryMessage ou DeliveryShutdown
-	Offset int    `json:"offset"`
+	Offset int32  `json:"offset"`
 	Key    []byte `json:"key,omitempty"`
 	Value  []byte `json:"value,omitempty"`
 }
