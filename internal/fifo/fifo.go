@@ -5,9 +5,8 @@ import (
 	"os"
 	"syscall"
 	"time"
+	"treenity/internal/protocol"
 )
-
-import "treenity/internal/protocol"
 
 func Create(path string) error {
 	os.Remove(path)
@@ -44,4 +43,14 @@ func Send(path string, data []byte) error {
 	pipe.SetWriteDeadline(time.Now().Add(time.Second))
 	_, err = pipe.Write(append(data, '\n'))
 	return err
+}
+
+// IsFIFO reports whether path exists and is a FIFO.
+// The client uses it to validate <ipc_identifier>.
+func IsFIFO(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeNamedPipe != 0
 }
