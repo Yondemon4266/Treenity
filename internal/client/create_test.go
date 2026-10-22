@@ -13,10 +13,10 @@ import (
 func TestCreateWithLiveServer(t *testing.T) {
 	endpoint := os.Getenv("TREENITY_IPC")
 	if endpoint == "" {
-		t.Skip("TREENITY_IPC non défini : lancez avec TREENITY_IPC=/tmp/treenity.server.xxx go test -v ./...")
+		t.Skip("TREENITY_IPC not set: run with TREENITY_IPC=/tmp/treenity.server.xxx go test -v ./...")
 	}
 
-	// Nom unique pour éviter qu'un second lancement de 'go test' échoue à cause d'un topic déjà créé
+	// Unique topic name to prevent failures on subsequent test runs due to existing topics
 	uniqueTopic := fmt.Sprintf("topic_%d", time.Now().UnixNano()%1000000)
 
 	tests := []struct {
@@ -24,21 +24,21 @@ func TestCreateWithLiveServer(t *testing.T) {
 		args     []string
 		wantCode int
 	}{
-		// 1. SUCCÈS SUR LE VRAI SERVEUR
+		// 1. SUCCESS ON LIVE SERVER
 		{
 			name:     "Valid topic creation",
 			args:     []string{endpoint, "create", uniqueTopic},
 			wantCode: protocol.ExitOK,
 		},
 
-		// 2. ERREUR RENVOYÉE PAR LE SERVEUR (Doublon)
+		// 2. ERROR RETURNED BY SERVER (Duplicate)
 		{
 			name:     "Duplicate topic creation (already exists on server)",
 			args:     []string{endpoint, "create", uniqueTopic},
 			wantCode: protocol.ExitTopic,
 		},
 
-		// 3. ERREURS D'ARGUMENTS ET DE FORMAT (ExitGeneral)
+		// 3. ARGUMENT AND FORMAT ERRORS (ExitGeneral)
 		{
 			name:     "Missing topic name",
 			args:     []string{endpoint, "create"},
@@ -65,7 +65,7 @@ func TestCreateWithLiveServer(t *testing.T) {
 			wantCode: protocol.ExitGeneral,
 		},
 
-		// 4. ERREURS D'ENDPOINT IPC (ExitGeneral)
+		// 4. IPC ENDPOINT ERRORS (ExitGeneral)
 		{
 			name:     "Non-existent IPC endpoint",
 			args:     []string{"/tmp/non_existent_fifo_999999", "create", "topic1"},
@@ -82,7 +82,7 @@ func TestCreateWithLiveServer(t *testing.T) {
 		})
 	}
 
-	// 5. TEST AVEC UN FICHIER NORMAL AU LIEU D'UN FIFO
+	// 5. TEST WITH A REGULAR FILE INSTEAD OF A FIFO
 	t.Run("Regular file instead of FIFO returns ExitGeneral", func(t *testing.T) {
 		regularFile := filepath.Join(t.TempDir(), "regular_file")
 		_ = os.WriteFile(regularFile, []byte("test"), 0600)
