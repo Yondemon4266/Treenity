@@ -31,7 +31,7 @@ const (
 // On commence par create seulement. On ajoute les autres au fur et à mesure.
 const (
 	OpCreate = "create"
-	// OpList      = "list"
+	OpList   = "list"
 	// OpInfo      = "info"
 	// OpProduce   = "produce"
 	// OpSubscribe = "subscribe"
@@ -52,8 +52,9 @@ type Request struct {
 
 // Response : server -> client (écrit dans le FIFO de réponse du client).
 type Response struct {
-	Code  int    `json:"code"`            // 0 = OK, sinon = code de sortie du client
-	Error string `json:"error,omitempty"` // le client l'affiche sur stderr
+	Code   int      `json:"code"`             // 0 = OK, sinon = code de sortie du client
+	Error  string   `json:"error,omitempty"`  // le client l'affiche sur stderr
+	Topics []string `json:"topics,omitempty"` // liste ordonnee des topics crees sur le serveur
 }
 
 // ClientInfo : sortie de la commande info. Champs imposés par le sujet (VIII.1 / VIII.3).

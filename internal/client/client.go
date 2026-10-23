@@ -24,6 +24,8 @@ func Run(args []string) int {
 	switch opts.command {
 	case "create":
 		return runCreate(c, opts.topic)
+	case "list":
+		return runList(c)
 	}
 
 	return protocol.ExitGeneral // parseArgs guarantees we never get here
