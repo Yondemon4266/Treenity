@@ -3,7 +3,9 @@ package server
 import (
 	"fmt"
 	"os"
+	"bufio"
 
+	"encoding/json"
 	"treenity/internal/fifo"
 	"treenity/internal/protocol"
 )
@@ -34,5 +36,20 @@ func (s *Server) Serve() int {
 	defer fifo.Remove(s.endpoint)
 	defer s.requests.Close()
 
-	return protocol.ExitOK
+	reader := bufio.NewReader(s.requests)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "server: read:", err)
+			return protocol.ExitIPC
+		}
+
+		var req protocol.Request
+		if err := json.Unmarshal(line, &req); err != nil {
+			fmt.Fprintln(os.Stderr, "server: bad request:", err)
+			continue
+		}
+
+		fmt.Fprintf(os.Stderr, "received: %+v\n", req)
+	}
 }
