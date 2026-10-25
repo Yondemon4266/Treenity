@@ -1,11 +1,11 @@
 package server
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
-	"bufio"
 
-	"encoding/json"
 	"treenity/internal/fifo"
 	"treenity/internal/protocol"
 )
@@ -13,6 +13,9 @@ import (
 type Server struct {
 	endpoint string
 	requests *os.File
+
+	topics map[string]*topic
+	order  []string
 }
 
 func New() (*Server, error) {
@@ -29,7 +32,11 @@ func New() (*Server, error) {
 	}
 
 	fmt.Println(endpoint)
-	return &Server{endpoint: endpoint, requests: requests}, nil
+	return &Server{
+		endpoint: endpoint,
+		requests: requests,
+		topics:   make(map[string]*topic),
+	}, nil
 }
 
 func (s *Server) Serve() int {
@@ -50,6 +57,7 @@ func (s *Server) Serve() int {
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "received: %+v\n", req)
+		resp := s.handle(req)
+		s.answer(req.Reply, resp)
 	}
 }
