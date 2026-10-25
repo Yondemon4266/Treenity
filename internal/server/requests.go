@@ -9,7 +9,7 @@ import (
 	"treenity/internal/protocol"
 )
 
-// handle turns one request into its response. It never touches a FIFO,
+// handle turns one request into its response.
 func (s *Server) handle(req protocol.Request) protocol.Response {
 	switch req.Op {
 	case protocol.OpCreate:
