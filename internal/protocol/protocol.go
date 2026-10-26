@@ -30,11 +30,11 @@ const (
 // ---- 3. Opérations (sujet VIII.1) ----
 // On commence par create seulement. On ajoute les autres au fur et à mesure.
 const (
-	OpCreate = "create"
-	OpList   = "list"
-	// OpInfo      = "info"
-	// OpProduce   = "produce"
-	// OpSubscribe = "subscribe"
+	OpCreate    = "create"
+	OpList      = "list"
+	OpInfo      = "info"
+	OpProduce   = "produce"
+	OpSubscribe = "subscribe"
 )
 
 // ---- 4. Types de livraison (server -> consumer) ----
@@ -45,16 +45,18 @@ const (
 
 // Request : client -> server (écrit dans le FIFO principal du server).
 type Request struct {
-	Op    string `json:"op"`
-	Reply string `json:"reply,omitempty"` // chemin du FIFO de réponse du client
-	Topic string `json:"topic,omitempty"`
+	Op     string `json:"op"`
+	Reply  string `json:"reply,omitempty"` // chemin du FIFO de réponse du client
+	Topic  string `json:"topic,omitempty"`
+	Client string `json:"client,omitempty"` // subscriber name
 }
 
 // Response : server -> client (écrit dans le FIFO de réponse du client).
 type Response struct {
-	Code   int      `json:"code"`             // 0 = OK, sinon = code de sortie du client
-	Error  string   `json:"error,omitempty"`  // le client l'affiche sur stderr
-	Topics []string `json:"topics,omitempty"` // liste ordonnee des topics crees sur le serveur
+	Code   int         `json:"code"`             // 0 = OK, sinon = code de sortie du client
+	Error  string      `json:"error,omitempty"`  // le client l'affiche sur stderr
+	Topics []string    `json:"topics,omitempty"` // liste ordonnee des topics crees sur le serveur
+	Info   *ClientInfo `json:"info,omitempty"`   // filled and given when 'info' command treated successfully
 }
 
 // ClientInfo : sortie de la commande info. Champs imposés par le sujet (VIII.1 / VIII.3).

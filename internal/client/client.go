@@ -26,6 +26,8 @@ func Run(args []string) int {
 		return runCreate(c, opts.topic)
 	case "list":
 		return runList(c)
+	case "info":
+		return runInfo(c, opts.clientName)
 	}
 
 	return protocol.ExitGeneral // parseArgs guarantees we never get here

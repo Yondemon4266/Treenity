@@ -17,10 +17,10 @@ const usage = `usage:
 
 // options holds the parsed command-line arguments.
 type options struct {
-	endpoint string // <ipc_identifier>
-	command  string // create / list / produce / subscribe / info
-	topic    string
-	name     string // subscriber name
+	endpoint   string // <ipc_identifier>
+	command    string // create / list / produce / subscribe / info
+	topic      string
+	clientName string // subscriber clientName
 
 	prefix    string
 	offset    int
@@ -63,10 +63,10 @@ func parseArgs(args []string) (options, error) {
 	case "create", "produce":
 		opts.topic = positional[0]
 	case "info":
-		opts.name = positional[0]
+		opts.clientName = positional[0]
 	case "subscribe":
 		opts.topic = positional[0]
-		opts.name = positional[1]
+		opts.clientName = positional[1]
 	}
 
 	// Step 2: parse the remaining --xxx options (in any order)
@@ -109,12 +109,12 @@ func parseArgs(args []string) (options, error) {
 	if opts.command == "create" || opts.command == "produce" || opts.command == "subscribe" {
 		if !protocol.ValidName(opts.topic) {
 
-			return opts, fmt.Errorf("invalid topic name %q", opts.topic)
+			return opts, fmt.Errorf("invalid topic clientName %q", opts.topic)
 		}
 	}
 	if opts.command == "info" || opts.command == "subscribe" {
-		if !protocol.ValidName(opts.name) {
-			return opts, fmt.Errorf("invalid client name %q", opts.name)
+		if !protocol.ValidName(opts.clientName) {
+			return opts, fmt.Errorf("invalid client clientName %q", opts.clientName)
 		}
 	}
 	return opts, nil
