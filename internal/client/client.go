@@ -20,14 +20,17 @@ func Run(args []string) int {
 	if code != protocol.ExitOK {
 		return code
 	}
+
 	defer c.close()
 	switch opts.command {
-	case "create":
+	case protocol.OpCreate:
 		return runCreate(c, opts.topic)
-	case "list":
+	case protocol.OpList:
 		return runList(c)
-	case "info":
+	case protocol.OpInfo:
 		return runInfo(c, opts.clientName)
+	case protocol.OpProduce:
+		return runProducer(c, opts.topic, opts.raw)
 	}
 
 	return protocol.ExitGeneral // parseArgs guarantees we never get here

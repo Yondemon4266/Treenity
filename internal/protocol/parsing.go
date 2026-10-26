@@ -12,15 +12,20 @@ import (
 // ==========================================
 
 // ParseTextMessage analyzes a raw line and extracts key and value as bytes.
-func ParseTextMessage(line string) (key []byte, value []byte, err error) {
+func ParseTextMessage(line string) ([]byte, []byte, error) {
 	line = strings.TrimRight(line, "\r\n")
 
 	parts := strings.SplitN(line, ":", 2)
 	if len(parts) != 2 {
 		return nil, nil, errors.New("invalid text format, expected: 'key:body'")
 	}
+	key := []byte(parts[0])
+	value := []byte(parts[1])
+	if len(key)+len(value) > MaxPayload {
+		return nil, nil, errors.New("key+value is larger than 1024 bytes")
+	}
 
-	return []byte(parts[0]), []byte(parts[1]), nil
+	return key, value, nil
 }
 
 // FormatTextMessage converts key and value into text.
@@ -36,6 +41,9 @@ func FormatTextMessage(key, value []byte) string {
 // - If Offset is asked, offset is written first (for consumer).
 // - Else (producer) only [keysize][key][valuesize][value] are written.
 func WriteRawMessage(w io.Writer, msg Delivery, includeOffset bool) error {
+	if len(msg.Key)+len(msg.Value) > MaxPayload {
+		return errors.New("key+value is larger than 1024 bytes")
+	}
 	if includeOffset {
 		if err := binary.Write(w, binary.LittleEndian, msg.Offset); err != nil {
 			return err
