@@ -35,6 +35,7 @@ const (
 	OpInfo      = "info"
 	OpProduce   = "produce"
 	OpSubscribe = "subscribe"
+	OpCheck     = "check"
 )
 
 // ---- 4. Types de livraison (server -> consumer) ----
@@ -49,6 +50,8 @@ type Request struct {
 	Reply  string `json:"reply,omitempty"` // chemin du FIFO de réponse du client
 	Topic  string `json:"topic,omitempty"`
 	Client string `json:"client,omitempty"` // subscriber name
+	Key    []byte `json:"key,omitempty"`    // produce
+	Value  []byte `json:"value,omitempty"`  // produce
 }
 
 // Response : server -> client (écrit dans le FIFO de réponse du client).

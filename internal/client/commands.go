@@ -1,8 +1,12 @@
 package client
 
 import (
+	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"treenity/internal/protocol"
 )
@@ -42,6 +46,57 @@ func runInfo(c *conn, client string) int {
 		return protocol.ExitGeneral
 	}
 	fmt.Println(string(jsonData))
+
+	return protocol.ExitOK
+}
+
+func runProducer(c *conn, topic string, raw bool) int {
+	if _, code := c.ask(protocol.Request{Op: protocol.OpCheck, Topic: topic}); code != protocol.ExitOK {
+		return code
+	}
+	reader := bufio.NewReader(os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for {
+		var key, value []byte
+
+		if raw {
+			// Reading message in binary
+			msg, err := protocol.ReadRawMessage(reader, false)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break // normal end stdin
+				}
+				printError("invalid raw message: %v", err)
+				return protocol.ExitGeneral
+			}
+			key, value = msg.Key, msg.Value
+		} else {
+			if !scanner.Scan() {
+				if err := scanner.Err(); err != nil {
+					printError("stdin read error: %v", err)
+					return protocol.ExitGeneral
+				}
+				break // normal end stdin
+			}
+			var err error
+			key, value, err = protocol.ParseTextMessage(scanner.Text())
+			if err != nil {
+				printError("%v", err)
+				return protocol.ExitGeneral
+			}
+		}
+
+		req := protocol.Request{
+			Op:    protocol.OpProduce,
+			Topic: topic,
+			Key:   key,
+			Value: value,
+		}
+		if _, code := c.ask(req); code != protocol.ExitOK {
+			return code
+		}
+	}
 
 	return protocol.ExitOK
 }
