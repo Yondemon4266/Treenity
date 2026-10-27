@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"treenity/internal/protocol"
 )
 
@@ -99,4 +101,104 @@ func runProducer(c *conn, topic string, raw bool) int {
 	}
 
 	return protocol.ExitOK
+}
+
+func runSubscribe(c *conn, opts options) int {
+	// 1. Demande d'abonnement au serveur
+	req := protocol.Request{
+		Op:        protocol.OpSubscribe,
+		Topic:     opts.topic,
+		Client:    opts.clientName,
+		Prefix:    []byte(opts.prefix),
+		Offset:    opts.offset,
+		HasOffset: opts.hasOffset,
+	}
+	resp, code := c.ask(req)
+	if code != protocol.ExitOK {
+		return code
+	}
+
+	// Open the FIFO given by the server in response of subscribe
+	subPipe, err := os.Open(resp.IPC)
+	if err != nil {
+		printError("cannot open consumer FIFO: %v", err)
+		return protocol.ExitIPC
+	}
+	defer subPipe.Close()
+
+	fmt.Printf("subscribed to %s\n", opts.topic)
+
+	// SIGINT and SIGTERM handling is mandatory when listening for responses to end the process when needed
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
+
+	// Reading the FIFO in a Goroutine to not block the handling of Signals
+	type readResult struct {
+		delivery protocol.Delivery
+		err      error
+	}
+	msgChan := make(chan readResult)
+
+	go func() {
+		reader := bufio.NewReader(subPipe)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				msgChan <- readResult{err: err}
+				return
+			}
+			var d protocol.Delivery
+			if err := json.Unmarshal(line, &d); err != nil {
+				msgChan <- readResult{err: err}
+				return
+			}
+			msgChan <- readResult{delivery: d}
+		}
+	}()
+
+	// main loop to listen to the new messages arriving in msgChan (delivery or shutdown) or signals of disconnection
+	// if signal of disconnection or shutdown message from server, we inform server that we disconnect with OpDisconnect
+	for {
+		select {
+		// case of SIGINT, SIGTERM, we inform server that we disconnect cleanly
+		case <-sigChan:
+			_, _ = c.ask(protocol.Request{Op: protocol.OpDisconnect, Client: opts.clientName})
+			return protocol.ExitOK
+
+		// case of error in the message of the server
+		case res := <-msgChan:
+			if res.err != nil {
+				printError("server connection lost: %v", res.err)
+				return protocol.ExitIPC
+			}
+
+			msg := res.delivery
+
+			if msg.Type == protocol.DeliveryShutdown {
+				_, _ = c.ask(protocol.Request{Op: protocol.OpDisconnect, Client: opts.clientName})
+				return protocol.ExitOK
+			}
+
+			// writes in the binary protocol format in stdout
+			if opts.raw {
+				if err := protocol.WriteRawMessage(os.Stdout, msg, true); err != nil {
+					printError("failed to write raw message: %v", err)
+					return protocol.ExitGeneral
+				}
+			} else {
+				fmt.Print(protocol.FormatTextMessage(msg.Key, msg.Value))
+			}
+
+			// Send Acknowledgement that we received message at offset and send Offset + 1
+			if err := c.send(protocol.Request{
+				Op:     protocol.OpAck,
+				Client: opts.clientName,
+				Offset: int32(msg.Offset + 1),
+			}); err != nil {
+				printError("failed to send ack: %v", err)
+				return protocol.ExitIPC
+			}
+		}
+	}
 }

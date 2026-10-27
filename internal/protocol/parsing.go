@@ -19,8 +19,12 @@ func ParseTextMessage(line string) ([]byte, []byte, error) {
 	if len(parts) != 2 {
 		return nil, nil, errors.New("invalid text format, expected: 'key:body'")
 	}
+	if len(parts[0]) == 0 || len(parts[1]) == 0 {
+		return nil, nil, errors.New("invalid text format, expected: 'key:body' with at least some content")
+	}
 	key := []byte(parts[0])
 	value := []byte(parts[1])
+
 	if len(key)+len(value) > MaxPayload {
 		return nil, nil, errors.New("key+value is larger than 1024 bytes")
 	}

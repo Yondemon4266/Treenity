@@ -31,12 +31,13 @@ func Run(args []string) int {
 		return runInfo(c, opts.clientName)
 	case protocol.OpProduce:
 		return runProducer(c, opts.topic, opts.raw)
+	case protocol.OpSubscribe:
+		return runSubscribe(c, opts)
 	}
 
-	return protocol.ExitGeneral // parseArgs guarantees we never get here
+	return protocol.ExitGeneral
 }
 
-// printError prints an error message on stderr (stdout is only for the output required by the subject).
 func printError(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "error: "+format+"\n", args...)
 }
