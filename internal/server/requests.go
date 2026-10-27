@@ -16,6 +16,10 @@ func (s *Server) handle(req protocol.Request) protocol.Response {
 		return s.createTopic(req.Topic)
 	case protocol.OpList:
 		return s.listTopics()
+	case protocol.OpCheck:
+		return s.checkTopic(req.Topic)
+	case protocol.OpProduce:
+		return s.produce(req.Topic, req.Key, req.Value)
 	}
 	return failure(protocol.ExitGeneral, "unknown operation %q", req.Op)
 }
@@ -29,6 +33,26 @@ func (s *Server) createTopic(name string) protocol.Response {
 	}
 	s.topics[name] = &topic{name: name}
 	s.order = append(s.order, name)
+	return protocol.Response{Code: protocol.ExitOK}
+}
+
+// checkTopic tells a producer whether its topic exists, before it reads stdin.
+func (s *Server) checkTopic(name string) protocol.Response {
+	if _, ok := s.topics[name]; !ok {
+		return failure(protocol.ExitTopic, "topic %q does not exist", name)
+	}
+	return protocol.Response{Code: protocol.ExitOK}
+}
+
+func (s *Server) produce(name string, key, value []byte) protocol.Response {
+	if len(key)+len(value) > protocol.MaxPayload {
+		return failure(protocol.ExitGeneral, "message larger than %d bytes", protocol.MaxPayload)
+	}
+	t, ok := s.topics[name]
+	if !ok {
+		return failure(protocol.ExitTopic, "topic %q does not exist", name)
+	}
+	t.add(key, value)
 	return protocol.Response{Code: protocol.ExitOK}
 }
 
