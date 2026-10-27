@@ -3,8 +3,12 @@ package server
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"treenity/internal/fifo"
 	"treenity/internal/protocol"
@@ -43,21 +47,32 @@ func (s *Server) Serve() int {
 	defer fifo.Remove(s.endpoint)
 	defer s.requests.Close()
 
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	go s.stopOnSignal(signals)
+
 	reader := bufio.NewReader(s.requests)
 	for {
 		line, err := reader.ReadBytes('\n')
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			return protocol.ExitOK
+		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "server: read:", err)
 			return protocol.ExitIPC
 		}
-
 		var req protocol.Request
 		if err := json.Unmarshal(line, &req); err != nil {
 			fmt.Fprintln(os.Stderr, "server: bad request:", err)
 			continue
 		}
-
 		resp := s.handle(req)
 		s.answer(req.Reply, resp)
 	}
+
+}
+
+func (s *Server) stopOnSignal(signals <-chan os.Signal) {
+	<-signals
+	s.requests.SetReadDeadline(time.Now())
 }
