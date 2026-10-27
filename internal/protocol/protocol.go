@@ -30,12 +30,14 @@ const (
 // ---- 3. Opérations (sujet VIII.1) ----
 // On commence par create seulement. On ajoute les autres au fur et à mesure.
 const (
-	OpCreate    = "create"
-	OpList      = "list"
-	OpInfo      = "info"
-	OpProduce   = "produce"
-	OpSubscribe = "subscribe"
-	OpCheck     = "check"
+	OpCreate     = "create"
+	OpList       = "list"
+	OpInfo       = "info"
+	OpProduce    = "produce"
+	OpSubscribe  = "subscribe"
+	OpCheck      = "check"
+	OpAck        = "ack"
+	OpDisconnect = "disconnect"
 )
 
 // ---- 4. Types de livraison (server -> consumer) ----
@@ -46,12 +48,16 @@ const (
 
 // Request : client -> server (écrit dans le FIFO principal du server).
 type Request struct {
-	Op     string `json:"op"`
-	Reply  string `json:"reply,omitempty"` // chemin du FIFO de réponse du client
-	Topic  string `json:"topic,omitempty"`
-	Client string `json:"client,omitempty"` // subscriber name
-	Key    []byte `json:"key,omitempty"`    // produce
-	Value  []byte `json:"value,omitempty"`  // produce
+	Op        string `json:"op"`
+	Reply     string `json:"reply,omitempty"` // chemin du FIFO de réponse du client
+	Topic     string `json:"topic,omitempty"`
+	Client    string `json:"client,omitempty"`     // subscriber name
+	Key       []byte `json:"key,omitempty"`        // produce
+	Value     []byte `json:"value,omitempty"`      // produce
+	HasOffset bool   `json:"has_offset,omitempty"` // subscribe: if offset is precised
+	Prefix    []byte `json:"prefix,omitempty"`     // subscribe: key prefix filter
+	Offset    int32  `json:"offset,omitempty"`     // subscribe: start offset; ack: committed offset
+
 }
 
 // Response : server -> client (écrit dans le FIFO de réponse du client).
@@ -60,13 +66,14 @@ type Response struct {
 	Error  string      `json:"error,omitempty"`  // le client l'affiche sur stderr
 	Topics []string    `json:"topics,omitempty"` // liste ordonnee des topics crees sur le serveur
 	Info   *ClientInfo `json:"info,omitempty"`   // filled and given when 'info' command treated successfully
+	IPC    string      `json:"ipc,omitempty"`    // after subscribe: path of this consumer's dedicated FIFO
 }
 
 // ClientInfo : sortie de la commande info. Champs imposés par le sujet (VIII.1 / VIII.3).
 type ClientInfo struct {
 	Client string `json:"client"`
 	Topic  string `json:"topic"`
-	Offset int    `json:"offset"`
+	Offset int32  `json:"offset"`
 	Prefix string `json:"prefix"`
 	IPC    string `json:"ipc"`
 }

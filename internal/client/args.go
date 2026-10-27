@@ -23,7 +23,7 @@ type options struct {
 	clientName string // subscriber clientName
 
 	prefix    string
-	offset    int
+	offset    int32
 	hasOffset bool // whether the user gave --offset
 	raw       bool
 }
@@ -97,7 +97,7 @@ func parseArgs(args []string) (options, error) {
 			if err != nil || n < 0 || n > protocol.MaxOffset {
 				return opts, fmt.Errorf("invalid offset %q", flags[i])
 			}
-			opts.offset = n
+			opts.offset = int32(n)
 			opts.hasOffset = true
 
 		default:
