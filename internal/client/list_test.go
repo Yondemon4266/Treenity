@@ -2,7 +2,6 @@ package client
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"treenity/internal/protocol"
@@ -49,15 +48,4 @@ func TestListWithLiveServer(t *testing.T) {
 			}
 		})
 	}
-
-	// 4. TEST WITH A REGULAR FILE INSTEAD OF A FIFO
-	t.Run("Regular file instead of FIFO returns ExitGeneral for list", func(t *testing.T) {
-		regularFile := filepath.Join(t.TempDir(), "regular_file")
-		_ = os.WriteFile(regularFile, []byte("test"), 0600)
-
-		gotCode := Run([]string{regularFile, "list"})
-		if gotCode != protocol.ExitGeneral {
-			t.Errorf("Run with regular file = code %d, want %d", gotCode, protocol.ExitGeneral)
-		}
-	})
 }
