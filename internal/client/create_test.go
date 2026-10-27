@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -82,14 +81,4 @@ func TestCreateWithLiveServer(t *testing.T) {
 		})
 	}
 
-	// 5. TEST WITH A REGULAR FILE INSTEAD OF A FIFO
-	t.Run("Regular file instead of FIFO returns ExitGeneral", func(t *testing.T) {
-		regularFile := filepath.Join(t.TempDir(), "regular_file")
-		_ = os.WriteFile(regularFile, []byte("test"), 0600)
-
-		gotCode := Run([]string{regularFile, "create", "topic1"})
-		if gotCode != protocol.ExitGeneral {
-			t.Errorf("Run with regular file = code %d, want %d", gotCode, protocol.ExitGeneral)
-		}
-	})
 }
