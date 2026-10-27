@@ -24,7 +24,7 @@ go.work.sum
 # --- Subject helper binaries (~8 MB each, provided by 42) ---
 subject/attachments/*/aquarium
 subject/attachments/*/fish
-
+subject/attachments/*
 # --- Environment / secrets ---
 .env
 .env.*
