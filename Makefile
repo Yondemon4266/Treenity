@@ -1,17 +1,35 @@
+TREENITY_IPC ?= /tmp/treenity.server.12345
+TOPIC ?= bocal
+SUB_NAME ?= aqua_sub
 
 gitinette:
-
 	python3 subject/attachments/gitinette
 
 setup:
 	git config core.hooksPath scripts/hooks
 	chmod +x scripts/hooks/commit-msg
 
+
+build-client:
+	go build -o client ./cmd/client
+
+
+# consumer aquarium
+aquarium: build-client
+	./subject/attachments/aquarium ./client $(TREENITY_IPC) $(TOPIC) $(SUB_NAME)
+
+# producer fish
+fish: build-client
+	./client $(TREENITY_IPC) create $(TOPIC)
+	./subject/attachments/fish ./client $(TREENITY_IPC) $(TOPIC)
+
+# ------------------------
+
 client:
 	go run ./cmd/client $(ARGS)
+
 test:
 	gotest -v ./...
-
 
 sync:
 	@git fetch origin main; \
@@ -28,4 +46,4 @@ push: sync
 	git push origin $$BRANCH; \
 	echo "Push $$BRANCH successfully"
 
-.PHONY: gitinette setup client test sync push
+.PHONY: gitinette setup build client aquarium fish test sync push
