@@ -56,35 +56,38 @@ func runProducer(c *conn, topic string, raw bool) int {
 	if _, code := c.ask(protocol.Request{Op: protocol.OpCheck, Topic: topic}); code != protocol.ExitOK {
 		return code
 	}
+
 	reader := bufio.NewReader(os.Stdin)
-	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
 		var key, value []byte
 
 		if raw {
-			// Reading message in binary
 			msg, err := protocol.ReadRawMessage(reader, false)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					break // normal end stdin
+					break
 				}
 				printError("invalid raw message: %v", err)
 				return protocol.ExitGeneral
 			}
 			key, value = msg.Key, msg.Value
 		} else {
-			if !scanner.Scan() {
-				if err := scanner.Err(); err != nil {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					if len(line) == 0 {
+						break
+					}
+				} else {
 					printError("stdin read error: %v", err)
 					return protocol.ExitGeneral
 				}
-				break // normal end stdin
 			}
-			var err error
-			key, value, err = protocol.ParseTextMessage(scanner.Text())
-			if err != nil {
-				printError("%v", err)
+			var parseErr error
+			key, value, parseErr = protocol.ParseTextMessage(line)
+			if parseErr != nil {
+				printError("%v", parseErr)
 				return protocol.ExitGeneral
 			}
 		}
@@ -104,7 +107,6 @@ func runProducer(c *conn, topic string, raw bool) int {
 }
 
 func runSubscribe(c *conn, opts options) int {
-	// 1. Demande d'abonnement au serveur
 	req := protocol.Request{
 		Op:        protocol.OpSubscribe,
 		Topic:     opts.topic,
