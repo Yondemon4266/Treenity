@@ -77,7 +77,10 @@ func (t *topic) run() {
 			t.readers[r.name] = r
 			t.catchUp(r)
 		case name := <-t.detach:
-			delete(t.readers, name)
+			if r, ok := t.readers[name]; ok {
+				r.pipe.Close()
+				delete(t.readers, name)
+			}
 		case <-retry.C:
 			t.pushAll()
 		}

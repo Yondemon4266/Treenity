@@ -23,6 +23,12 @@ func (s *Server) handle(req protocol.Request) protocol.Response {
 		return s.produce(req.Topic, req.Key, req.Value)
 	case protocol.OpSubscribe:
 		return s.subscribe(req)
+	case protocol.OpAck:
+		return s.ack(req.Client, req.Offset)
+	case protocol.OpDisconnect:
+		return s.disconnect(req.Client)
+	case protocol.OpInfo:
+		return s.info(req.Client)
 	}
 	return failure(protocol.ExitGeneral, "unknown operation %q", req.Op)
 }
@@ -108,6 +114,38 @@ func (s *Server) subscribe(req protocol.Request) protocol.Response {
 	sub.path, sub.active = path, true
 	t.attach <- &reader{name: req.Client, prefix: req.Prefix, pipe: pipe, next: offset}
 	return protocol.Response{Code: protocol.ExitOK, IPC: path}
+}
+
+func (s *Server) ack(name string, offset int32) protocol.Response {
+	if sub, ok := s.clients.Get(name); ok && sub.active && offset > sub.offset {
+		sub.offset = offset
+	}
+	return protocol.Response{Code: protocol.ExitOK}
+}
+
+func (s *Server) disconnect(name string) protocol.Response {
+	sub, ok := s.clients.Get(name)
+	if !ok || !sub.active {
+		return failure(protocol.ExitTopic, "client %q is not connected", name)
+	}
+	sub.topic.detach <- name
+	fifo.Remove(sub.path)
+	sub.active = false
+	return protocol.Response{Code: protocol.ExitOK}
+}
+
+func (s *Server) info(name string) protocol.Response {
+	sub, ok := s.clients.Get(name)
+	if !ok {
+		return failure(protocol.ExitTopic, "client %q does not exist", name)
+	}
+	return protocol.Response{Code: protocol.ExitOK, Info: &protocol.ClientInfo{
+		Client: sub.name,
+		Topic:  sub.topic.name,
+		Offset: sub.offset,
+		Prefix: string(sub.prefix),
+		IPC:    sub.path,
+	}}
 }
 
 // listTopics returns the topic names sorted, so the output is the same every time.
