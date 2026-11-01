@@ -34,7 +34,7 @@ func (s *Server) createTopic(name string) protocol.Response {
 	if _, exists := s.topics[name]; exists {
 		return failure(protocol.ExitTopic, "topic %q already exists", name)
 	}
-	s.topics[name] = &topic{name: name}
+	s.topics[name] = newTopic(name)
 	return protocol.Response{Code: protocol.ExitOK}
 }
 
@@ -54,7 +54,7 @@ func (s *Server) produce(name string, key, value []byte) protocol.Response {
 	if !ok {
 		return failure(protocol.ExitTopic, "topic %q does not exist", name)
 	}
-	t.add(key, value)
+	t.incoming <- message{key: key, value: value}
 	return protocol.Response{Code: protocol.ExitOK}
 }
 
@@ -105,7 +105,8 @@ func (s *Server) subscribe(req protocol.Request) protocol.Response {
 		s.clients.Set(req.Client, sub)
 	}
 	sub.topic, sub.prefix, sub.offset = t, req.Prefix, offset
-	sub.path, sub.pipe, sub.active = path, pipe, true
+	sub.path, sub.active = path, true
+	t.attach <- &reader{name: req.Client, prefix: req.Prefix, pipe: pipe, next: offset}
 	return protocol.Response{Code: protocol.ExitOK, IPC: path}
 }
 
