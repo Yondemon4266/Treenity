@@ -20,7 +20,6 @@ type Server struct {
 	requests *os.File
 
 	topics  map[string]*topic
-	order   []string
 	clients *hashmap.Map[*subscriber]
 }
 

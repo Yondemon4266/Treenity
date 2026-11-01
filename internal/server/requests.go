@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 
 	"treenity/internal/fifo"
 	"treenity/internal/protocol"
@@ -34,7 +35,6 @@ func (s *Server) createTopic(name string) protocol.Response {
 		return failure(protocol.ExitTopic, "topic %q already exists", name)
 	}
 	s.topics[name] = &topic{name: name}
-	s.order = append(s.order, name)
 	return protocol.Response{Code: protocol.ExitOK}
 }
 
@@ -109,8 +109,14 @@ func (s *Server) subscribe(req protocol.Request) protocol.Response {
 	return protocol.Response{Code: protocol.ExitOK, IPC: path}
 }
 
+// listTopics returns the topic names sorted, so the output is the same every time.
 func (s *Server) listTopics() protocol.Response {
-	return protocol.Response{Code: protocol.ExitOK, Topics: s.order}
+	names := make([]string, 0, len(s.topics))
+	for name := range s.topics {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return protocol.Response{Code: protocol.ExitOK, Topics: names}
 }
 
 // failure builds an error response; the client exits with code.

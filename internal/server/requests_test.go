@@ -32,7 +32,7 @@ func TestCreateTopic(t *testing.T) {
 	}
 }
 
-func TestListKeepsCreationOrder(t *testing.T) {
+func TestListIsSorted(t *testing.T) {
 	s := newTestServer()
 
 	if resp := s.handle(protocol.Request{Op: protocol.OpList}); len(resp.Topics) != 0 {
@@ -42,7 +42,7 @@ func TestListKeepsCreationOrder(t *testing.T) {
 		s.handle(protocol.Request{Op: protocol.OpCreate, Topic: name})
 	}
 	resp := s.handle(protocol.Request{Op: protocol.OpList})
-	want := []string{"user_events", "orders", "audit"}
+	want := []string{"audit", "orders", "user_events"}
 	if !reflect.DeepEqual(resp.Topics, want) {
 		t.Errorf("got %v, want %v", resp.Topics, want)
 	}
