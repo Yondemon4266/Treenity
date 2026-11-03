@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"treenity/internal/protocol"
+	"treenity/internal/trie"
 )
 
 // message is one entry of a topic's log. Its offset is its position in the log.
@@ -25,6 +26,7 @@ type topic struct {
 	attach   chan *reader
 	detach   chan string
 	readers  map[string]*reader
+	prefixes *trie.Trie
 }
 
 // add appends a message at the end of the log and returns its offset.
@@ -59,6 +61,7 @@ func newTopic(name string) *topic {
 		attach:   make(chan *reader),
 		detach:   make(chan string),
 		readers:  make(map[string]*reader),
+		prefixes: trie.New(),
 	}
 	go t.run()
 	return t
@@ -72,12 +75,16 @@ func (t *topic) run() {
 		select {
 		case m := <-t.incoming:
 			t.add(m.key, m.value)
-			t.pushAll()
+			for _, name := range t.prefixes.Match(m.key) {
+				t.catchUp(t.readers[name])
+			}
 		case r := <-t.attach:
 			t.readers[r.name] = r
+			t.prefixes.Add(r.prefix, r.name)
 			t.catchUp(r)
 		case name := <-t.detach:
 			if r, ok := t.readers[name]; ok {
+				t.prefixes.Remove(r.prefix, name)
 				r.pipe.Close()
 				delete(t.readers, name)
 			}
