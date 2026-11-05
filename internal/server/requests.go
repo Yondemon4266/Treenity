@@ -112,7 +112,8 @@ func (s *Server) subscribe(req protocol.Request) protocol.Response {
 	}
 	sub.topic, sub.prefix, sub.offset = t, req.Prefix, offset
 	sub.path, sub.active = path, true
-	t.attach <- &reader{name: req.Client, prefix: req.Prefix, pipe: pipe, next: offset}
+	t.attach <- &reader{name: req.Client, prefix: req.Prefix, pipe: pipe, path: path, next: offset}
+	s.connected++
 	return protocol.Response{Code: protocol.ExitOK, IPC: path}
 }
 
@@ -131,6 +132,7 @@ func (s *Server) disconnect(name string) protocol.Response {
 	sub.topic.detach <- name
 	fifo.Remove(sub.path)
 	sub.active = false
+	s.connected--
 	return protocol.Response{Code: protocol.ExitOK}
 }
 

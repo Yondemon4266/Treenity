@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"time"
 
+	"treenity/internal/fifo"
 	"treenity/internal/protocol"
 	"treenity/internal/trie"
 )
@@ -27,6 +28,9 @@ type topic struct {
 	detach   chan string
 	readers  map[string]*reader
 	prefixes *trie.Trie
+	farewell chan struct{}
+	stop     chan struct{}
+	done     chan struct{}
 }
 
 // add appends a message at the end of the log and returns its offset.
@@ -62,6 +66,9 @@ func newTopic(name string) *topic {
 		detach:   make(chan string),
 		readers:  make(map[string]*reader),
 		prefixes: trie.New(),
+		farewell: make(chan struct{}),
+		stop:     make(chan struct{}),
+		done:     make(chan struct{}),
 	}
 	go t.run()
 	return t
@@ -88,16 +95,37 @@ func (t *topic) run() {
 				r.pipe.Close()
 				delete(t.readers, name)
 			}
+		case <-t.farewell:
+			for _, r := range t.readers {
+				r.writeLine(protocol.Delivery{Type: protocol.DeliveryShutdown})
+			}
+		case <-t.stop:
+			for _, r := range t.readers {
+				r.pipe.Close()
+				fifo.Remove(r.path)
+			}
+			close(t.done)
+			return
 		case <-retry.C:
 			t.pushAll()
 		}
 	}
 }
 
-// pushAll gives every reader what it is missing. A failed write is not an error
-// here: the reader keeps its position and is tried again at the next tick.
+// pushAll gives every reader what it is missing.
 func (t *topic) pushAll() {
 	for _, r := range t.readers {
 		t.catchUp(r)
 	}
+}
+
+// sayFarewell tells every connected reader that the server is stopping.
+func (t *topic) sayFarewell() {
+	t.farewell <- struct{}{}
+}
+
+// shutdown stops the goroutine and waits until it has cleaned up.
+func (t *topic) shutdown() {
+	t.stop <- struct{}{}
+	<-t.done
 }

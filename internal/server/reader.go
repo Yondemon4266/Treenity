@@ -14,6 +14,7 @@ type reader struct {
 	name   string
 	prefix []byte
 	pipe   *os.File
+	path   string
 	next   int32
 }
 
