@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"treenity/internal/fifo"
+	"treenity/internal/hashmap"
 	"treenity/internal/protocol"
 )
 
@@ -18,8 +19,8 @@ type Server struct {
 	endpoint string
 	requests *os.File
 
-	topics map[string]*topic
-	order  []string
+	topics  map[string]*topic
+	clients *hashmap.Map[*subscriber]
 }
 
 func New() (*Server, error) {
@@ -40,6 +41,7 @@ func New() (*Server, error) {
 		endpoint: endpoint,
 		requests: requests,
 		topics:   make(map[string]*topic),
+		clients:  hashmap.New[*subscriber](),
 	}, nil
 }
 
