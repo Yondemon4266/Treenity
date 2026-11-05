@@ -33,12 +33,6 @@ type topic struct {
 	done     chan struct{}
 }
 
-// add appends a message at the end of the log and returns its offset.
-func (t *topic) add(key, value []byte) int32 {
-	t.log = append(t.log, message{key: key, value: value})
-	return int32(len(t.log) - 1)
-}
-
 func (t *topic) catchUp(r *reader) error {
 	for r.next < int32(len(t.log)) {
 		m := t.log[r.next]
@@ -81,7 +75,7 @@ func (t *topic) run() {
 	for {
 		select {
 		case m := <-t.incoming:
-			t.add(m.key, m.value)
+			t.log = append(t.log, m)
 			for _, name := range t.prefixes.Match(m.key) {
 				t.catchUp(t.readers[name])
 			}

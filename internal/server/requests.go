@@ -64,10 +64,6 @@ func (s *Server) produce(name string, key, value []byte) protocol.Response {
 	return protocol.Response{Code: protocol.ExitOK}
 }
 
-// consumerPath is the dedicated FIFO of a subscriber.
-func (s *Server) consumerPath(name string) string {
-	return fmt.Sprintf("%s:consumer:%s", s.endpoint, name)
-}
 
 func (s *Server) subscribe(req protocol.Request) protocol.Response {
 	if !protocol.ValidName(req.Client) {
@@ -95,7 +91,7 @@ func (s *Server) subscribe(req protocol.Request) protocol.Response {
 		offset = sub.offset
 	}
 
-	path := s.consumerPath(req.Client)
+	path := fmt.Sprintf("%s:consumer:%s", s.endpoint, req.Client)
 	fifo.Remove(path) // leftover from an earlier run
 	if err := fifo.Create(path); err != nil {
 		return failure(protocol.ExitIPC, "create %s: %v", path, err)
