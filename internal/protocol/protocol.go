@@ -1,9 +1,9 @@
-// Package protocol : le contrat entre le server et le client.
+// Package protocol is the contract between the server and the client.
 //
-// Règle d'équipe : toute modification de ce fichier = un commit à part
-// (ex. "feat(protocol): add produce op") + on prévient l'autre.
+// Team rule: any change to this file goes in its own commit
+// (e.g. "feat(protocol): add produce op") and the other teammate is told.
 //
-// Format : chaque Request / Response / Delivery = une ligne JSON terminée par '\n'.
+// Format: every Request / Response / Delivery is one JSON line ending with '\n'.
 package protocol
 
 import (
@@ -11,24 +11,24 @@ import (
 	"regexp"
 )
 
-// ---- 1. Limites (sujet VI.4) ----
+// ---- 1. Limits (subject VI.4) ----
 const (
-	MaxPayload = 1024 // key + value max, en octets
+	MaxPayload = 1024 // key + value max, in bytes
 	MaxLine    = 4096
 	MaxOffset  = 1<<31 - 1 // int32 max limit for offset (incrementing 32-bit integer)
 )
 
-// ---- 2. Codes de sortie (sujet VIII.4) ----
-// Priorité si plusieurs erreurs : 1 > 3 > 2
+// ---- 2. Exit codes (subject VIII.4) ----
+// Precedence when several errors apply: 1 > 3 > 2
 const (
 	ExitOK      = 0
-	ExitGeneral = 1 // mauvais arguments, nom invalide, IPC identifier invalide
-	ExitTopic   = 2 // topic / client inexistant ou en double
-	ExitIPC     = 3 // communication coupée avec le server
+	ExitGeneral = 1 // bad arguments, invalid name, invalid IPC identifier
+	ExitTopic   = 2 // topic / client missing or duplicated
+	ExitIPC     = 3 // communication with the server lost
 )
 
-// ---- 3. Opérations (sujet VIII.1) ----
-// On commence par create seulement. On ajoute les autres au fur et à mesure.
+// ---- 3. Operations (subject VIII.1) ----
+// The first five are client commands; check, ack and disconnect are used internally.
 const (
 	OpCreate     = "create"
 	OpList       = "list"
@@ -40,36 +40,36 @@ const (
 	OpDisconnect = "disconnect"
 )
 
-// ---- 4. Types de livraison (server -> consumer) ----
+// ---- 4. Delivery types (server -> consumer) ----
 const (
-	DeliveryMessage  = "message"  // un vrai message
-	DeliveryShutdown = "shutdown" // le server s'arrête : le consumer doit sortir avec 0 (sujet VI.8)
+	DeliveryMessage  = "message"  // a real message
+	DeliveryShutdown = "shutdown" // the server is stopping: the consumer must exit with 0 (subject VI.8)
 )
 
-// Request : client -> server (écrit dans le FIFO principal du server).
+// Request: client -> server (written to the server's main FIFO).
 type Request struct {
 	Op        string `json:"op"`
-	Reply     string `json:"reply,omitempty"` // chemin du FIFO de réponse du client
+	Reply     string `json:"reply,omitempty"` // path of the client's reply FIFO
 	Topic     string `json:"topic,omitempty"`
 	Client    string `json:"client,omitempty"`     // subscriber name
 	Key       []byte `json:"key,omitempty"`        // produce
 	Value     []byte `json:"value,omitempty"`      // produce
-	HasOffset bool   `json:"has_offset,omitempty"` // subscribe: if offset is precised
+	HasOffset bool   `json:"has_offset,omitempty"` // subscribe: whether an offset was given
 	Prefix    []byte `json:"prefix,omitempty"`     // subscribe: key prefix filter
 	Offset    int32  `json:"offset,omitempty"`     // subscribe: start offset; ack: committed offset
 
 }
 
-// Response : server -> client (écrit dans le FIFO de réponse du client).
+// Response: server -> client (written to the client's reply FIFO).
 type Response struct {
-	Code   int         `json:"code"`             // 0 = OK, sinon = code de sortie du client
-	Error  string      `json:"error,omitempty"`  // le client l'affiche sur stderr
-	Topics []string    `json:"topics,omitempty"` // liste ordonnee des topics crees sur le serveur
-	Info   *ClientInfo `json:"info,omitempty"`   // filled and given when 'info' command treated successfully
+	Code   int         `json:"code"`             // 0 = OK, otherwise the client's exit code
+	Error  string      `json:"error,omitempty"`  // the client prints it on stderr
+	Topics []string    `json:"topics,omitempty"` // sorted list of the topics created on the server
+	Info   *ClientInfo `json:"info,omitempty"`   // set only when an info request succeeds
 	IPC    string      `json:"ipc,omitempty"`    // after subscribe: path of this consumer's dedicated FIFO
 }
 
-// ClientInfo : sortie de la commande info. Champs imposés par le sujet (VIII.1 / VIII.3).
+// ClientInfo: output of the info command. Fields required by the subject (VIII.1 / VIII.3).
 type ClientInfo struct {
 	Client string `json:"client"`
 	Topic  string `json:"topic"`
@@ -78,24 +78,24 @@ type ClientInfo struct {
 	IPC    string `json:"ipc"`
 }
 
-// Delivery : server -> consumer. Un message = key + value + offset (sujet VI.4).
+// Delivery: server -> consumer. A message = key + value + offset (subject VI.4).
 type Delivery struct {
-	Type   string `json:"type"` // DeliveryMessage ou DeliveryShutdown
+	Type   string `json:"type"` // DeliveryMessage or DeliveryShutdown
 	Offset int32  `json:"offset"`
 	Key    []byte `json:"key,omitempty"`
 	Value  []byte `json:"value,omitempty"`
 }
 
-// Noms de topic et de client : ^[a-zA-Z0-9_.-]{1,32}$ (sujet VI.5)
+// Topic and client names: ^[a-zA-Z0-9_.-]{1,32}$ (subject VI.5)
 var namePattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]{1,32}$`)
 
 func ValidName(name string) bool {
 	return namePattern.MatchString(name)
 }
 
-// ---- Chemins des FIFO ----
-// FIFO principal du server : /tmp/treenity.server.<pid_server>
-// FIFO de réponse          : /tmp/treenity.server.<pid_server>:reply:<pid_client>
+// ---- FIFO paths ----
+// Server main FIFO: /tmp/treenity.server.<pid_server>
+// Reply FIFO:       /tmp/treenity.server.<pid_server>:reply:<pid_client>
 
 func ServerPath(serverPID int) string {
 	return fmt.Sprintf("/tmp/treenity.server.%d", serverPID)
