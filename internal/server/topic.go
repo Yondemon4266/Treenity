@@ -107,25 +107,10 @@ func (t *topic) run() {
 			close(t.done)
 			return
 		case <-retry.C:
-			t.pushAll()
+			for _, r := range t.readers {
+				t.catchUp(r)
+			}
 		}
 	}
 }
 
-// pushAll gives every reader what it is missing.
-func (t *topic) pushAll() {
-	for _, r := range t.readers {
-		t.catchUp(r)
-	}
-}
-
-// sayFarewell tells every connected reader that the server is stopping.
-func (t *topic) sayFarewell() {
-	t.farewell <- struct{}{}
-}
-
-// shutdown stops the goroutine and waits until it has cleaned up.
-func (t *topic) shutdown() {
-	t.stop <- struct{}{}
-	<-t.done
-}
