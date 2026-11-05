@@ -15,12 +15,15 @@ import (
 	"treenity/internal/protocol"
 )
 
+const graceTime = 5 * time.Second
+
 type Server struct {
 	endpoint string
 	requests *os.File
 
-	topics  map[string]*topic
-	clients *hashmap.Map[*subscriber]
+	topics    map[string]*topic
+	clients   *hashmap.Map[*subscriber]
+	connected int
 }
 
 func New() (*Server, error) {
@@ -53,14 +56,25 @@ func (s *Server) Serve() int {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	go s.stopOnSignal(signals)
 
-	reader := bufio.NewReader(s.requests)
+	stopping := false
+	lines := bufio.NewReader(s.requests)
 	for {
-		line, err := reader.ReadBytes('\n')
+		line, err := lines.ReadBytes('\n')
 		if errors.Is(err, os.ErrDeadlineExceeded) {
-			return protocol.ExitOK
+			if stopping {
+				break
+			}
+			stopping = true
+			s.farewell()
+			s.requests.SetReadDeadline(time.Now().Add(graceTime))
+			if s.connected == 0 {
+				break
+			}
+			continue
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "server: read:", err)
+			s.stopTopics()
 			return protocol.ExitIPC
 		}
 		var req protocol.Request
@@ -70,11 +84,27 @@ func (s *Server) Serve() int {
 		}
 		resp := s.handle(req)
 		s.answer(req.Reply, resp)
+		if stopping && s.connected == 0 {
+			break // everybody has said goodbye
+		}
 	}
-
+	s.stopTopics()
+	return protocol.ExitOK
 }
 
 func (s *Server) stopOnSignal(signals <-chan os.Signal) {
 	<-signals
 	s.requests.SetReadDeadline(time.Now())
+}
+
+func (s *Server) farewell() {
+	for _, t := range s.topics {
+		t.sayFarewell()
+	}
+}
+
+func (s *Server) stopTopics() {
+	for _, t := range s.topics {
+		t.shutdown()
+	}
 }
