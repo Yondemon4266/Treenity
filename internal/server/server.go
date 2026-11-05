@@ -54,29 +54,37 @@ func (s *Server) Serve() int {
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-	go s.stopOnSignal(signals)
+	go func() {
+		<-signals
+		s.requests.SetReadDeadline(time.Now())
+	}()
 
 	stopping := false
 	lines := bufio.NewReader(s.requests)
 	for {
 		line, err := lines.ReadBytes('\n')
+		// Ctrl + C
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			if stopping {
 				break
 			}
 			stopping = true
-			s.farewell()
+			for _, t := range s.topics {
+				t.sayFarewell()
+			}
 			s.requests.SetReadDeadline(time.Now().Add(graceTime))
 			if s.connected == 0 {
 				break
 			}
 			continue
 		}
+		// Error Read
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "server: read:", err)
 			s.stopTopics()
 			return protocol.ExitIPC
 		}
+		// Error requests
 		var req protocol.Request
 		if err := json.Unmarshal(line, &req); err != nil {
 			fmt.Fprintln(os.Stderr, "server: bad request:", err)
@@ -90,17 +98,6 @@ func (s *Server) Serve() int {
 	}
 	s.stopTopics()
 	return protocol.ExitOK
-}
-
-func (s *Server) stopOnSignal(signals <-chan os.Signal) {
-	<-signals
-	s.requests.SetReadDeadline(time.Now())
-}
-
-func (s *Server) farewell() {
-	for _, t := range s.topics {
-		t.sayFarewell()
-	}
 }
 
 func (s *Server) stopTopics() {
