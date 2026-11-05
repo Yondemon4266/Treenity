@@ -19,11 +19,8 @@ type reader struct {
 }
 
 func (r *reader) writeLine(d protocol.Delivery) error {
-	data, err := json.Marshal(d)
-	if err != nil {
-		return err
-	}
+	data, _ := json.Marshal(d)
 	r.pipe.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err = r.pipe.Write(append(data, '\n'))
+	_, err := r.pipe.Write(append(data, '\n'))
 	return err
 }

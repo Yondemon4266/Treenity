@@ -64,13 +64,9 @@ func (s *Server) produce(name string, key, value []byte) protocol.Response {
 	return protocol.Response{Code: protocol.ExitOK}
 }
 
-
 func (s *Server) subscribe(req protocol.Request) protocol.Response {
 	if !protocol.ValidName(req.Client) {
 		return failure(protocol.ExitGeneral, "invalid client name %q", req.Client)
-	}
-	if req.HasOffset && req.Offset < 0 {
-		return failure(protocol.ExitGeneral, "invalid offset %d", req.Offset)
 	}
 	t, ok := s.topics[req.Topic]
 	if !ok {
@@ -92,7 +88,6 @@ func (s *Server) subscribe(req protocol.Request) protocol.Response {
 	}
 
 	path := fmt.Sprintf("%s:consumer:%s", s.endpoint, req.Client)
-	fifo.Remove(path) // leftover from an earlier run
 	if err := fifo.Create(path); err != nil {
 		return failure(protocol.ExitIPC, "create %s: %v", path, err)
 	}
@@ -166,11 +161,7 @@ func (s *Server) answer(path string, resp protocol.Response) {
 	if path == "" {
 		return
 	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "server: encode reply:", err)
-		return
-	}
+	data, _ := json.Marshal(resp)
 	if err := fifo.Send(path, data); err != nil {
 		fmt.Fprintln(os.Stderr, "server: reply to", path+":", err)
 	}
