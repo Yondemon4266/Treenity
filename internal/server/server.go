@@ -70,7 +70,7 @@ func (s *Server) Serve() int {
 			}
 			stopping = true
 			for _, t := range s.topics {
-				t.sayFarewell()
+				t.farewell <- struct{}{}
 			}
 			s.requests.SetReadDeadline(time.Now().Add(graceTime))
 			if s.connected == 0 {
@@ -102,6 +102,7 @@ func (s *Server) Serve() int {
 
 func (s *Server) stopTopics() {
 	for _, t := range s.topics {
-		t.shutdown()
+		t.stop <- struct{}{}
+		<-t.done
 	}
 }
