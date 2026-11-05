@@ -2,6 +2,11 @@ TREENITY_IPC ?= /tmp/treenity.server.12345
 TOPIC ?= bocal
 SUB_NAME ?= aqua_sub
 
+all: build-server build-client
+
+build-server:
+	go build -o server ./cmd/server
+
 gitinette:
 	python3 subject/attachments/gitinette
 
@@ -28,8 +33,14 @@ fish: build-client
 client:
 	go run ./cmd/client $(ARGS)
 
+clean:
+	rm -f server client
+
+re: clean
+	$(MAKE) all
+
 test:
-	gotest -v ./...
+	go test -v ./...
 
 sync:
 	@git fetch origin main; \
@@ -46,4 +57,4 @@ push: sync
 	git push origin $$BRANCH; \
 	echo "Push $$BRANCH successfully"
 
-.PHONY: gitinette setup build client aquarium fish test sync push
+.PHONY: all build-server build-client clean re test gitinette setup client aquarium fish sync push
