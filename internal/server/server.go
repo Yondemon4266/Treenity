@@ -24,6 +24,7 @@ type Server struct {
 	topics    map[string]*topic
 	clients   *hashmap.Map[*subscriber]
 	connected int
+	stopping  bool // set on SIGINT/SIGTERM: only disconnect and ack are still served
 }
 
 func New() (*Server, error) {
@@ -59,16 +60,15 @@ func (s *Server) Serve() int {
 		s.requests.SetReadDeadline(time.Now())
 	}()
 
-	stopping := false
 	lines := bufio.NewReader(s.requests)
 	for {
 		line, err := lines.ReadBytes('\n')
 		// Ctrl + C
 		if errors.Is(err, os.ErrDeadlineExceeded) {
-			if stopping {
+			if s.stopping {
 				break
 			}
-			stopping = true
+			s.stopping = true
 			for _, t := range s.topics {
 				t.farewell <- struct{}{}
 			}
@@ -92,7 +92,7 @@ func (s *Server) Serve() int {
 		}
 		resp := s.handle(req)
 		s.answer(req.Reply, resp)
-		if stopping && s.connected == 0 {
+		if s.stopping && s.connected == 0 {
 			break // everybody has said goodbye
 		}
 	}

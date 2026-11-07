@@ -12,6 +12,10 @@ import (
 
 // handle turns one request into its response.
 func (s *Server) handle(req protocol.Request) protocol.Response {
+	// While stopping, consumers may still commit and say goodbye, nothing else.
+	if s.stopping && req.Op != protocol.OpDisconnect && req.Op != protocol.OpAck {
+		return failure(protocol.ExitIPC, "server is shutting down")
+	}
 	switch req.Op {
 	case protocol.OpCreate:
 		return s.createTopic(req.Topic)
