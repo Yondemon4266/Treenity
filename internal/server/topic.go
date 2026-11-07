@@ -2,6 +2,9 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
 	"time"
 
 	"treenity/internal/fifo"
@@ -18,8 +21,9 @@ type message struct {
 const retryEvery = 100 * time.Millisecond
 
 type topic struct {
-	name string
-	log  []message
+	name     string
+	endpoint string // main FIFO of the server, to report consumers that vanished
+	log      []message
 
 	// Only run() touches log and readers; the other goroutines talk to it
 	// through these channels.
@@ -52,9 +56,10 @@ func (t *topic) catchUp(r *reader) error {
 	return nil
 }
 
-func newTopic(name string) *topic {
+func newTopic(name, endpoint string) *topic {
 	t := &topic{
 		name:     name,
+		endpoint: endpoint,
 		incoming: make(chan message, 64),
 		attach:   make(chan *reader),
 		detach:   make(chan string),
@@ -66,6 +71,18 @@ func newTopic(name string) *topic {
 	}
 	go t.run()
 	return t
+}
+
+// vanished reports a consumer whose process died without a goodbye (SIGKILL).
+// Only the main goroutine may change the client records, so the topic sends it
+// the same disconnect request the client would have sent, on the main FIFO.
+func (t *topic) vanished(name string) bool {
+	data, _ := json.Marshal(protocol.Request{Op: protocol.OpDisconnect, Client: name})
+	if err := fifo.Send(t.endpoint, data); err != nil {
+		return false // tried again at the next tick
+	}
+	fmt.Fprintln(os.Stderr, "server: consumer", name, "is gone")
+	return true
 }
 
 // run is the goroutine of the topic: it waits for something to happen and handles it.
@@ -102,6 +119,13 @@ func (t *topic) run() {
 			return
 		case <-retry.C:
 			for _, r := range t.readers {
+				if r.gone {
+					continue
+				}
+				if r.pid > 0 && !alive(r.pid) {
+					r.gone = t.vanished(r.name)
+					continue
+				}
 				t.catchUp(r)
 			}
 		}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"treenity/internal/fifo"
 	"treenity/internal/protocol"
@@ -12,6 +14,10 @@ import (
 
 // handle turns one request into its response.
 func (s *Server) handle(req protocol.Request) protocol.Response {
+	// While stopping, consumers may still commit and say goodbye, nothing else.
+	if s.stopping && req.Op != protocol.OpDisconnect && req.Op != protocol.OpAck {
+		return failure(protocol.ExitIPC, "server is shutting down")
+	}
 	switch req.Op {
 	case protocol.OpCreate:
 		return s.createTopic(req.Topic)
@@ -40,7 +46,7 @@ func (s *Server) createTopic(name string) protocol.Response {
 	if _, exists := s.topics[name]; exists {
 		return failure(protocol.ExitTopic, "topic %q already exists", name)
 	}
-	s.topics[name] = newTopic(name)
+	s.topics[name] = newTopic(name, s.endpoint)
 	return protocol.Response{Code: protocol.ExitOK}
 }
 
@@ -103,7 +109,8 @@ func (s *Server) subscribe(req protocol.Request) protocol.Response {
 	}
 	sub.topic, sub.prefix, sub.offset = t, req.Prefix, offset
 	sub.path, sub.active = path, true
-	t.attach <- &reader{name: req.Client, prefix: req.Prefix, pipe: pipe, path: path, next: offset}
+	t.attach <- &reader{name: req.Client, prefix: req.Prefix, pipe: pipe, path: path, next: offset,
+		pid: clientPID(req.Reply)}
 	s.connected++
 	return protocol.Response{Code: protocol.ExitOK, IPC: path}
 }
@@ -149,6 +156,20 @@ func (s *Server) listTopics() protocol.Response {
 	}
 	sort.Strings(names)
 	return protocol.Response{Code: protocol.ExitOK, Topics: names}
+}
+
+// clientPID reads the client's PID at the end of its reply FIFO path
+// (protocol.ReplyPath: "<endpoint>:reply:<pid>"). 0 means unknown.
+func clientPID(reply string) int {
+	i := strings.LastIndex(reply, ":reply:")
+	if i < 0 {
+		return 0
+	}
+	pid, err := strconv.Atoi(reply[i+len(":reply:"):])
+	if err != nil || pid <= 0 {
+		return 0
+	}
+	return pid
 }
 
 // failure builds an error response; the client exits with code.
