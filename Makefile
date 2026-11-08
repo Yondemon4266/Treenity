@@ -28,7 +28,21 @@ fish: build-client
 	./client $(TREENITY_IPC) create $(TOPIC)
 	./subject/attachments/fish ./client $(TREENITY_IPC) $(TOPIC)
 
-# ------------------------
+bubble:
+	@if [ -f "subject/attachments/fish" ]; then \
+	./server > ipc_path.tmp & \
+	sleep 1; \
+	SERVER_IPC=$$(cat ipc_path.tmp); \
+	./client $$SERVER_IPC create test_topic; \
+	for i in $$(seq 1 200); do \
+		./subject/attachments/fish ./client $$SERVER_IPC test_topic & \
+	done; \
+	./subject/attachments/aquarium ./client $$SERVER_IPC test_topic test_client; \
+	rm -f ipc_path.tmp; \
+	pkill fish; \
+else \
+	echo "No subject attachments found, please download them first."; \
+    fi
 
 client:
 	go run ./cmd/client $(ARGS)
@@ -40,6 +54,9 @@ re: clean
 	$(MAKE) all
 
 test:
+	go test -v ./internal/trie/trie.go ./internal/trie/trie_test.go
+
+test-all:
 	go test -v ./...
 
 sync:
@@ -57,4 +74,4 @@ push: sync
 	git push origin $$BRANCH; \
 	echo "Push $$BRANCH successfully"
 
-.PHONY: all build-server build-client clean re test gitinette setup client aquarium fish sync push
+.PHONY: all build-server build-client clean re test test-all gitinette setup client aquarium fish sync push
