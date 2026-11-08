@@ -42,7 +42,7 @@ func runInfo(c *conn, client string) int {
 		return code
 	}
 
-	jsonData, err := json.Marshal(resp)
+	jsonData, err := json.Marshal(resp.Info)
 	if err != nil {
 		printError("failed to marshal json response: %v", err)
 		return protocol.ExitGeneral
