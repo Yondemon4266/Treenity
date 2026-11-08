@@ -79,6 +79,14 @@ func WriteRawMessage(w io.Writer, msg Delivery, includeOffset bool) error {
 	return nil
 }
 
+// converts io.EOF into io.ErrUnexpectedEOF once the message started
+func noEOF(err error) error {
+	if errors.Is(err, io.EOF) {
+		return io.ErrUnexpectedEOF
+	}
+	return err
+}
+
 // ReadRawMessage reads and deserializes binary message.
 // At each Read, the cursor increments of the size of the data size
 func ReadRawMessage(r io.Reader, includeOffset bool) (Delivery, error) {
@@ -87,6 +95,7 @@ func ReadRawMessage(r io.Reader, includeOffset bool) (Delivery, error) {
 	}
 
 	if includeOffset {
+		// 1st read (consumer mode) : io.EOF is authorised (normal read end)
 		if err := binary.Read(r, binary.LittleEndian, &msg.Offset); err != nil {
 			return msg, err
 		}
@@ -94,25 +103,38 @@ func ReadRawMessage(r io.Reader, includeOffset bool) (Delivery, error) {
 
 	var keySize int32
 	if err := binary.Read(r, binary.LittleEndian, &keySize); err != nil {
+		// if we already read the offset, EOF here is anormal
+		if includeOffset {
+			return msg, noEOF(err)
+		}
+		// else (producer mode), it's 1st read : io.EOF is authorized
 		return msg, err
+	}
+
+	if keySize < 0 || keySize > MaxPayload {
+		return msg, errors.New("invalid keysize")
 	}
 
 	msg.Key = make([]byte, keySize)
 	if keySize > 0 {
 		if _, err := io.ReadFull(r, msg.Key); err != nil {
-			return msg, err
+			return msg, noEOF(err)
 		}
 	}
 
 	var valueSize int32
 	if err := binary.Read(r, binary.LittleEndian, &valueSize); err != nil {
-		return msg, err
+		return msg, noEOF(err)
+	}
+
+	if valueSize < 0 || int(keySize)+int(valueSize) > MaxPayload {
+		return msg, errors.New("invalid valuesize or payload too large")
 	}
 
 	msg.Value = make([]byte, valueSize)
 	if valueSize > 0 {
 		if _, err := io.ReadFull(r, msg.Value); err != nil {
-			return msg, err
+			return msg, noEOF(err)
 		}
 	}
 
