@@ -28,7 +28,7 @@ func bruteForce(subs map[string][]byte, key []byte) []string {
 	return out
 }
 
-// The four rules of the subject (VI.9).
+// The four rules oif the subject (VI.9).
 func TestMatchRules(t *testing.T) {
 	tr := New()
 	tr.Add([]byte("user"), "alice")
